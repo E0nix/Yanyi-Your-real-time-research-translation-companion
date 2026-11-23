@@ -1,0 +1,24 @@
+(()=>{
+ let held=false,started=false,serial=0,panel=null,dragged=false,anchor=null;
+ const editable=el=>!!el?.closest?.('input,textarea,select,[contenteditable=""],[contenteditable="true"],[role="textbox"]');
+ function dismiss(){serial++;panel?.remove();panel=null}
+ function position(){if(!panel||!anchor||dragged)return;const w=panel.offsetWidth,h=panel.offsetHeight,gap=12;const below=innerHeight-anchor.y-gap,above=anchor.y-gap;let top=below>=h||below>=above?anchor.y+gap:anchor.y-gap-h;panel.style.left=Math.max(8,Math.min(anchor.x+gap,innerWidth-w-8))+'px';panel.style.top=Math.max(8,Math.min(top,innerHeight-h-8))+'px'}
+ function drag(e){if(e.button!==0||e.target.closest('button')||!panel)return;const box=panel.getBoundingClientRect(),x=e.clientX-box.left,y=e.clientY-box.top;let moved=false;const move=ev=>{moved=true;dragged=true;panel.style.left=Math.max(8,Math.min(ev.clientX-x,innerWidth-panel.offsetWidth-8))+'px';panel.style.top=Math.max(8,Math.min(ev.clientY-y,innerHeight-panel.offsetHeight-8))+'px'};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up)};window.addEventListener('pointermove',move);window.addEventListener('pointerup',up)}
+ function clean(s){return String(s||'').replace(/\*\*/g,'').replace(/^\s*[-#]+\s*/gm,'').trim()}
+ function node(tag,cls,text){const el=document.createElement(tag);el.className=cls;if(text)el.textContent=text;return el}
+ function modelName(id){const name=String(id||'').split('/').pop();return name.replace(/^deepseek/i,'DeepSeek').replace(/^gpt/i,'GPT').replace(/^(DeepSeek|GPT)-/i,'$1 ').replace(/^(DeepSeek )v/i,'$1V').replace(/-flash$/i,' Flash')||'所选模型'}
+ function render(output,text,raw,dictionary,source){
+  output.replaceChildren();
+  if(dictionary){const word=node('div','rt-word',text);output.append(word);let data;try{data=JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''))}catch{}
+   if(data&&Array.isArray(data.senses)&&data.senses.length){if(typeof data.phonetic==='string'&&data.phonetic.trim())word.append(node('span','rt-phonetic',data.phonetic));for(const item of data.senses.slice(0,3)){if(!item||typeof item!=='object')continue;const row=node('div','rt-sense');const label=node('div','rt-sense-main');if(typeof item.pos==='string')label.append(node('span','rt-pos',clean(item.pos)));if(typeof item.meaning==='string')label.append(node('span','rt-meaning',clean(item.meaning)));row.append(label);if(typeof item.example==='string'&&item.example.trim())row.append(node('div','rt-example',clean(item.example)));if(typeof item.exampleTranslation==='string'&&item.exampleTranslation.trim())row.append(node('div','rt-example-zh',clean(item.exampleTranslation)));output.append(row)}
+   }else output.append(node('div','rt-fallback',clean(raw)));
+  }else output.append(node('div','rt-fallback',clean(raw)));
+  const label=source?.type==='microsoft'?'翻译结果由微软翻译提供':`基于 ${modelName(source?.model)} 生成${dictionary?'释义':'翻译'} · 请结合语境核对`;output.append(node('div','rt-source',label));
+ }
+ document.addEventListener('keydown',e=>{if(e.code==='KeyT'&&!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!editable(e.target))held=true;if(e.key==='Escape'&&panel)dismiss()},true);
+ document.addEventListener('keyup',e=>{if(e.code==='KeyT')held=false},true);window.addEventListener('blur',()=>{held=false;started=false});
+ document.addEventListener('mousedown',e=>{if(panel&&!panel.contains(e.target))dismiss();started=e.button===0&&held&&!editable(e.target)&&!e.target.closest?.('.rt-lookup')},true);
+ document.addEventListener('mouseup',e=>{if(!started||e.button!==0)return;started=false;const text=window.getSelection()?.toString().trim();if(!text)return;const count=++serial;panel?.remove();panel=node('div','rt-lookup');panel.setAttribute('role','dialog');panel.setAttribute('aria-label','划词翻译');const title=node('div','rt-lookup-title','研译 · 划词');const close=node('button','rt-close','×');close.type='button';close.setAttribute('aria-label','关闭');close.onclick=dismiss;title.append(close);const output=node('div','rt-lookup-content',text.length>3000?'所选内容超过 3000 字符，请缩短后重试。':'正在查询…');panel.append(title,output);document.documentElement.append(panel);anchor={x:e.clientX,y:e.clientY};dragged=false;title.addEventListener('pointerdown',drag);panel.addEventListener('pointerdown',event=>{if(event.target===panel||event.target===output)drag(event)});position();if(text.length>3000)return;const dictionary=/^[A-Za-z][A-Za-z\s'’-]*$/.test(text)&&text.split(/\s+/).length<=5;chrome.runtime.sendMessage({type:'selection-lookup',text,dictionary}).then(result=>{if(count!==serial)return;if(result?.ok){render(output,text,result.text,dictionary,result.source);position()}else output.textContent=result?.error||'查询失败'}).catch(()=>{if(count===serial)output.textContent='无法连接扩展，请刷新网页后重试。'})},true);
+})();
+
+

@@ -1,0 +1,71 @@
+{
+  "manifest_version": 3,
+  "name": "研译 · 学术双语翻译",
+  "version": "0.7.2",
+  "description": "专为科研阅读打造的双语翻译助手：支持网页对照、划词释义、微软快速翻译和自定义大模型。",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png",
+      "32": "assets/icons/icon-32.png",
+      "16": "assets/icons/icon-16.png"
+    }
+  },
+  "options_page": "options.html",
+  "commands": {
+    "toggle": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "切换网页双语翻译"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "file:///*"
+      ],
+      "js": [
+        "content.js",
+        "selection.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/brand.png"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "file:///*"
+      ]
+    }
+  ],
+  "icons": {
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png",
+    "32": "assets/icons/icon-32.png",
+    "16": "assets/icons/icon-16.png"
+  }
+}
